@@ -1,51 +1,28 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
-# Sample data generation for demonstration (replace with your actual dataframe)
-data = {
-    "Physician": ["Dr. Smith", "Dr. Smith", "Dr. Jones", "Dr. Jones", "Dr. Lee", "Dr. Lee"],
-    "Clinic": ["Clinic A", "Clinic A", "Clinic A", "Clinic B", "Clinic B", "Clinic B"],
-    "Issue": ["Issue1", "Issue2", "Issue1", "Issue2", "Issue1", "Issue2"],
-    "Comment": [
-        "Great service!",
-        "Okay experience.",
-        "Very bad experience.",
-        "Could be better.",
-        "Excellent care and attention.",
-        "Not satisfied."
-    ],
-    "Stars": [5, 3, 1, 2, 5, 1],
-    "Date": pd.to_datetime([
-        "2024-04-01",
-        "2024-04-02",
-        "2024-04-03",
-        "2024-04-04",
-        "2024-04-05",
-        "2024-04-06",
-    ]),
-    "Source": ["Google", "Google", "Yelp", "Yelp", "Google", "Yelp"],
-    "class": ["Positive", "Neutral", "Negative", "Neutral", "Positive", "Negative"],
-    "sentiment_score": [0.8, 0.0, -0.7, 0.1, 0.9, -0.9],
-    "sentiment": ["positive", "neutral", "negative", "neutral", "positive", "negative"],
-}
-
-df = pd.DataFrame(data)
-
 st.title("Physician Clinic Sentiment Analysis Dashboard")
+
+# Load data from Excel file
+@st.cache_data
+def load_data():
+    df = pd.read_excel('result_uxfeel.xlsx', parse_dates=['Date'])
+    return df
+
+df = load_data()
 
 # Dropdown for Clinic
 clinic_selected = st.selectbox(
     "Select Clinic",
-    options=["All"] + sorted(df["Clinic"].unique().tolist())
+    options=["All"] + sorted(df["Clinic"].dropna().unique().tolist())
 )
 
 # Filter physicians based on clinic selection
 if clinic_selected == "All":
-    physicians = df["Physician"].unique()
+    physicians = df["Physician"].dropna().unique()
 else:
-    physicians = df[df["Clinic"] == clinic_selected]["Physician"].unique()
+    physicians = df[df["Clinic"] == clinic_selected]["Physician"].dropna().unique()
 
 # Dropdown for Physician
 physician_selected = st.selectbox(
@@ -62,34 +39,28 @@ if clinic_selected != "All":
 if physician_selected != "All":
     filtered_df = filtered_df[filtered_df["Physician"] == physician_selected]
 
-st.subheader("Sentiment Count and Average Sentiment Score by Class")
+st.subheader("Sentiment Counts for Positive and Negative per Class")
 
 if filtered_df.empty:
     st.write("No data available for the selected Clinic and Physician.")
 else:
-    # Aggregate sentiment count and average sentiment score for each class
-    agg_df = filtered_df.groupby("class").agg(
-        sentiment_count=("sentiment", "count"),
-        avg_sentiment_score=("sentiment_score", "mean")
-    ).reset_index()
+    # Group by class and sentiment, count entries
+    count_df = filtered_df[filtered_df["sentiment"].isin(["positive", "negative"])].groupby(
+        ["class", "sentiment"]
+    ).size().unstack(fill_value=0)
 
-    fig, ax1 = plt.subplots(figsize=(8, 5))
+    # Sort classes alphabetically to keep order consistent
+    count_df = count_df.reindex(sorted(count_df.index))
 
-    color = 'tab:blue'
-    ax1.set_xlabel('Class')
-    ax1.set_ylabel('Sentiment Count', color=color)
-    ax1.bar(agg_df["class"], agg_df["sentiment_count"], color=color, alpha=0.6, label='Count')
-    ax1.tick_params(axis='y', labelcolor=color)
+    # Plot grouped bar chart for positive and negative counts per class
+    ax = count_df.plot(kind='bar', figsize=(8,5), color={"positive": "green", "negative": "red"})
 
-    ax2 = ax1.twinx()
-    color = 'tab:red'
-    ax2.set_ylabel('Avg Sentiment Score', color=color)
-    ax2.plot(agg_df["class"], agg_df["avg_sentiment_score"], color=color, marker='o', linestyle='-', label='Avg Sentiment Score')
-    ax2.tick_params(axis='y', labelcolor=color)
-    ax2.set_ylim(-1, 1)
-
-    fig.tight_layout()
-    st.pyplot(fig)
+    ax.set_xlabel("Class")
+    ax.set_ylabel("Count")
+    ax.set_title("Count of Positive and Negative Sentiments per Class")
+    ax.legend(title="Sentiment")
+    plt.xticks(rotation=0)
+    st.pyplot(ax.figure)
 
 # Button to display positive and negative comments
 if st.button("Show Positive and Negative Comments"):
