@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 st.title("Physician Clinic Sentiment Analysis Dashboard")
 
 # Load data from Excel file
-df = pd.read_excel('result_uxfeel.xlsx', parse_dates=['Date'])
+df = pd.read_excel('result_uxfeel.xlsx')
 
 
 # Dropdown for Clinic
