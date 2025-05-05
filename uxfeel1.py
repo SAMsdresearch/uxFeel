@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import hashlib
 import json
 import os
+import re
 
 USERS_FILE = "users.json"
 
@@ -57,47 +58,66 @@ def logout():
     st.session_state.authenticated = False
     st.session_state.username = None
 
+# Simulated LLM recommendations generator
+# For real usage, replace this with API call to a real LLM (like OpenAI ChatGPT) providing the comments text
+def get_recommendations_from_comments(pos_comments, neg_comments):
+    # Very simple heuristic recommendations based on presence of comments
+    recommendations = {}
+
+    if pos_comments:
+        recommendations['Positive Recommendations'] = (
+            "Keep up the excellent aspects mentioned by patients, such as good communication, "
+            "friendly staff, and efficient service. Encourage sharing of these strengths across clinics."
+        )
+    else:
+        recommendations['Positive Recommendations'] = "No positive feedback available to generate recommendations."
+
+    if neg_comments:
+        recommendations['Negative Recommendations'] = (
+            "Address common concerns raised in negative comments: improve wait times, "
+            "enhance staff responsiveness, and clarify communication. Consider targeted training "
+            "and process improvements to resolve these issues."
+        )
+    else:
+        recommendations['Negative Recommendations'] = "No negative feedback available to generate recommendations."
+
+    return recommendations
+
 def main_app():
     data = pd.read_excel('result_uxfeel.xlsx')
     df = data
 
-    # Set page background color via markdown with CSS
-    # st.markdown(
-    #     """
-    #     style>
-    #     .stApp {
-    #         background-color: #f0f2f6;
-    #     }
-    #     /style>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-color: #f0f2f6;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     st.title("Physician Clinic Sentiment Analysis Dashboard")
 
-    # Ensure the 'Clinic' column is treated as string and drop NaN values
-    df['Clinic'] = df['Clinic'].astype(str).replace('nan', '')  # Convert NaN to empty string
-    df = df[df['Clinic'] != '']  # Drop empty strings
+    df['Clinic'] = df['Clinic'].astype(str).replace('nan', '')
+    df = df[df['Clinic'] != '']
 
-    # Dropdown for Clinic
     clinic_selected = st.selectbox(
         "Select Clinic",
         options=["All"] + sorted(df["Clinic"].unique().tolist())
     )
 
-    # Filter physicians based on clinic selection
     if clinic_selected == "All":
         physicians = df["Physician"].unique()
     else:
         physicians = df[df["Clinic"] == clinic_selected]["Physician"].unique()
 
-    # Dropdown for Physician
     physician_selected = st.selectbox(
         "Select Physician",
         options=["All"] + sorted(physicians.tolist())
     )
 
-    # Filter dataframe based on selections
     filtered_df = df.copy()
 
     if clinic_selected != "All":
@@ -111,23 +131,19 @@ def main_app():
     if filtered_df.empty:
         st.write("No data available for the selected Clinic and Physician.")
     else:
-        # Group by class and sentiment, count entries
         count_df = filtered_df[filtered_df["sentiment"].isin(["POSITIVE", "NEGATIVE"])].groupby(
             ["class", "sentiment"]
         ).size().unstack(fill_value=0)
 
-        # Check if count_df is empty before plotting
         if count_df.empty:
             st.write("No positive or negative sentiments found for the selected filters.")
         else:
-            # Sort classes alphabetically to keep order consistent
             count_df = count_df.reindex(sorted(count_df.index))
 
-            # Define light red and light blue colors
-            colors = {"POSITIVE": "#add8e6",  # light blue
-                      "NEGATIVE": "#f7c6c5"}  # light red
+            colors = {"POSITIVE": "#add8e6",
+                      "NEGATIVE": "#f7c6c5"}
 
-            # Plot grouped bar chart for positive and negative counts per class with smaller size and font
+            import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(6, 4))
             count_df.plot(kind='bar', color=colors, ax=ax)
 
@@ -139,7 +155,6 @@ def main_app():
             ax.tick_params(axis='y', labelsize=9)
             st.pyplot(fig)
 
-        # Pie chart for overall positive vs negative counts with reduced size
         total_counts = filtered_df[filtered_df["sentiment"].isin(["POSITIVE", "NEGATIVE"])].groupby(
             "sentiment").size()
         if not total_counts.empty:
@@ -157,27 +172,25 @@ def main_app():
             st.subheader("Overall Positive vs Negative Sentiment Distribution")
             st.pyplot(fig1)
 
-    # Button to display positive and negative comments
-    if st.button("Show Positive and Negative Comments"):
+    if st.button("Show Recommendations"):
         if filtered_df.empty:
-            st.write("No comments to display for the selected filters.")
+            st.write("No comments available for the selected filters to generate recommendations.")
         else:
             pos_comments_df = filtered_df[filtered_df["sentiment"] == "POSITIVE"]
             neg_comments_df = filtered_df[filtered_df["sentiment"] == "NEGATIVE"]
 
-            st.markdown("### Positive Comments")
-            if not pos_comments_df.empty:
-                for idx, row in pos_comments_df.iterrows():
-                    st.write(f"- {row['Comment']} (Physician: {row['Physician']}, Clinic: {row['Clinic']})")
-            else:
-                st.write("No positive comments found.")
+            pos_comments = pos_comments_df['Comment'].astype(str).tolist()
+            neg_comments = neg_comments_df['Comment'].astype(str).tolist()
 
-            st.markdown("### Negative Comments")
-            if not neg_comments_df.empty:
-                for idx, row in neg_comments_df.iterrows():
-                    st.write(f"- {row['Comment']} (Physician: {row['Physician']}, Clinic: {row['Clinic']})")
-            else:
-                st.write("No negative comments found.")
+            recommendations = get_recommendations_from_comments(pos_comments, neg_comments)
+
+            st.markdown("### Recommendations Based on Patient Comments")
+
+            st.markdown("#### Positive Comments Recommendations")
+            st.write(recommendations['Positive Recommendations'])
+
+            st.markdown("#### Negative Comments Recommendations")
+            st.write(recommendations['Negative Recommendations'])
 
 def app():
     if 'authenticated' not in st.session_state:
@@ -208,3 +221,4 @@ def app():
 
 if __name__ == "__main__":
     app()
+
