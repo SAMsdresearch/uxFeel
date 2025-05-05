@@ -62,16 +62,16 @@ def main_app():
     df = data
 
     # Set page background color via markdown with CSS
-    st.markdown(
-        """
-        style>
-        .stApp {
-            background-color: #f0f2f6;
-        }
-        /style>
-        """,
-        unsafe_allow_html=True
-    )
+    # st.markdown(
+    #     """
+    #     style>
+    #     .stApp {
+    #         background-color: #f0f2f6;
+    #     }
+    #     /style>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
 
     st.title("Physician Clinic Sentiment Analysis Dashboard")
 
